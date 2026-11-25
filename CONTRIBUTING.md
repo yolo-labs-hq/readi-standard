@@ -9,4 +9,4 @@ READI is a draft. Comments shape what the next dated version says.
 
 Accepted changes are recorded in the next dated version of the draft.
 
-Don’t report security problems in a public issue. A security contact is pending; see [readi.page](https://readi.page/spec#security-contact).
+Don’t report security problems in a public issue. Email security@yololabs.ai instead; see [SECURITY.md](SECURITY.md).
