@@ -1,0 +1,47 @@
+name: Comment on the draft
+description: Ask a question, point out a problem, or suggest a change to READI or READI Access.
+labels: ["comment"]
+body:
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part are you commenting on?
+      options:
+        - "READI levels: R0 Reachable"
+        - "READI levels: R1 Findable"
+        - "READI levels: R2 Readable"
+        - "READI levels: R3 Usable"
+        - "READI levels: R4 Actionable"
+        - "READI levels: R5 Transactable"
+        - "Check states and evidence"
+        - "Access by purpose"
+        - "Crosswalk with other frameworks"
+        - "Versioning and governance"
+        - "READI Access: overview"
+        - "READI Access: Flow 1 Discover"
+        - "READI Access: Flow 2 Introduce"
+        - "READI Access: Flow 3 Ask"
+        - "READI Access: Flow 4 Ask later"
+        - "READI Access: Flow 5 Act"
+        - "READI Access: Flow 6 Pay or book"
+        - "READI Access: Flow 7 Review and revoke"
+        - "Something else"
+    validations:
+      required: true
+  - type: input
+    id: reference
+    attributes:
+      label: Section or requirement ID
+      description: Optional. For example "R2 checks" or "RA-2.3".
+  - type: textarea
+    id: comment
+    attributes:
+      label: Your comment
+      description: What’s wrong, unclear or missing? A real example helps most.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested change
+      description: Optional. Wording you’d like to see instead.

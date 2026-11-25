@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read the drafts on readi.page
+    url: https://readi.page/spec
+    about: The levels, checks and READI Access flows in readable form.
