@@ -42,22 +42,22 @@ client_id=https%3A%2F%2Fagent.example%2Fagents%2Fassistant.json
 |---|---|---|
 | RA-3.1 | Authorization code flow with PKCE `S256` only. | OAuth 2.1 draft-17 (WG draft) |
 | RA-3.2 | Requests carrying `authorization_details` MUST use Pushed Authorization Requests, because RAR data sent through the browser can be modified. | RFC 9126; RFC 9396 §12 |
-| RA-3.3 | Each action MUST be expressed as an `authorization_details` object with a `type`. Types MUST be published at a stable URL with a plain-language description the approval screen can show. | RFC 9396 §2, §2.1 |
+| RA-3.3 | Each action MUST be expressed as an `authorization_details` object with a `type`. Types MUST be published at a stable URL with a plain-language description the approval screen can show. READI publishes [booking](/access/types/booking) and [read](/access/types/read) at [/access/types](/access/types). | RFC 9396 §2, §2.1 |
 | RA-3.4 | The server MUST reject unknown or malformed types with `invalid_authorization_details`. | RFC 9396 §5 |
 | RA-3.5 | The approval screen MUST show the merged set of what's requested (scopes plus details). The person MAY approve a subset. | RFC 9396 §3, §3.1 |
 | RA-3.6 | The token response MUST return the `authorization_details` actually granted. | RFC 9396 §7 |
 | RA-3.7 | The authorization and token requests MUST carry `resource`. The token MUST be usable only at that resource. | RFC 8707; RFC 9396 §3.2 |
 | RA-3.8 | Access tokens MUST be short-lived (READI default ≤ 10 minutes) and sender-constrained (flow 5). | READI profile choice; RFC 9449 |
-| RA-3.12 (proposed) | A request for read-only access SHOULD use a typed `authorization_details` entry whose actions are all read-only, rather than a bare scope. The approval screen MUST say what can be seen, at which site, and for how long, and MUST NOT describe it as permission to change anything. A read-only grant MUST NOT authorize any action that changes state. | RFC 9396 §§2, 3; READI profile |
+| RA-3.12 (proposed) | A request for read-only access SHOULD use an `authorization_details` entry of the dedicated read type `https://readi.page/access/types/read` with `actions: ["read"]`, rather than a bare scope or a read action on a type that also carries authority to act. The AS MUST treat it as its own permission on the approval screen, in flow 7 and in introspection. The approval screen MUST say what can be seen, at which site, and for how long, and MUST NOT describe it as permission to change anything. A read-only grant MUST NOT authorize any action that changes state. | RFC 9396 §§2, 3; READI profile |
 
 **When the sign-in server is split** into an identity provider and an authorization server, the agent still starts here, at the AS. The AS signs the person in through the identity provider, so the person opens one link (spec §8.1).
 
 ### Read-only approvals (proposed)
 
-To list or read, ask for a typed read permission rather than a bare scope, so the approval screen can say exactly what the agent will see:
+To list or read, ask for the read type rather than a bare scope, so the approval screen can say exactly what the agent will see. It is a separate type, not a `read` action on the booking type, so permission to look is never confused with permission to book:
 
 ```
-&authorization_details=[{"type":"https://readi.page/access/types/booking","actions":["read"],"locations":["https://cafe.example/api/bookings"]}]
+&authorization_details=[{"type":"https://readi.page/access/types/read","actions":["read"],"locations":["https://cafe.example/api/bookings"]}]
 ```
 
 > **Let BookingBot see your bookings at Café Example?** It can't make, change or cancel a booking. Access ends in 10 minutes.
@@ -122,4 +122,4 @@ On a split IdP and AS, the AS's verification page signs the person in through th
 
 ## Open question
 
-- Whether READI publishes a small shared registry of plain-language `authorization_details` types (booking, quote request, appointment change, payment), so approval screens say the same thing everywhere.
+- Which types READI publishes next, after [booking](/access/types/booking) and [read](/access/types/read): quote request, appointment change, payment. A shared set means approval screens say the same thing everywhere.

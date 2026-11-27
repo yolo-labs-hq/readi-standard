@@ -1,6 +1,6 @@
 # READI Access — Draft 2026.12-pre
 
-*A profile for how AI agents sign in, get a person's approval, and act on their behalf. It is part of the READI readiness standard (https://readi.page), sponsored by The Radar Network. The text is licensed CC BY 4.0. Status: working draft, not for implementation. Revised November 27, 2026: chat platforms and hosted agents (§10), device authorization (flow 3), platform and agent-host identities, one link for the person on a split identity provider and authorization server (§8.1), and typed read-only approvals (flow 3). Requirements marked “proposed” are new in this revision and open for comment.*
+*A profile for how AI agents sign in, get a person's approval, and act on their behalf. It is part of the READI readiness standard (https://readi.page), sponsored by The Radar Network. The text is licensed CC BY 4.0. Status: working draft, not for implementation. Revised November 27, 2026: chat platforms and hosted agents (§10), device authorization (flow 3), platform and agent-host identities, one link for the person on a split identity provider and authorization server (§8.1), typed read-only approvals (flow 3), published booking and read types (`/access/types`), and a post-consent return for agents that can’t receive a redirect (§11). Requirements marked “proposed” are new in this revision and open for comment.*
 
 ## 1. Purpose
 
@@ -62,7 +62,7 @@ One organization may fill several roles, for example operator, agent host and pl
 6. **Pay or book:** a fresh, exact approval for each transaction and a signed receipt. Under §9 bounded mode, a standing approval may cover a payment or booking within its caps; every such use still produces a signed receipt.
 7. **Review and revoke:** what the person can see and stop at any time. Lists every standing approval (§9) with one-step revoke.
 
-Each flow has its own agent-readable page at `/access/flows/<n>-<name>.md` with exact HTTP requests and responses.
+Each flow has its own agent-readable page at `/access/flows/<n>-<name>.md` with exact HTTP requests and responses. The `authorization_details` types READI defines are at `/access/types/<name>` (Markdown, or JSON with `Accept: application/json`).
 
 ## 5. Mapping to READI levels
 
@@ -159,7 +159,7 @@ client_id=https%3A%2F%2Fagent.example%2Fagents%2Fassistant.json
 }
 ```
 
-A `request_uri` is meant to last seconds, which is too short to hand to a person. So the AS also returns its own link for the person, on its own origin, bound to this pushed request. `readi_interaction_uri` and `readi_interaction_expires_in` are READI extension members; no IETF or OpenID standard defines them. An AS that doesn't return them MUST give the `request_uri` a lifetime long enough for the person to respond, and the agent sends the person to `/authorize?client_id=…&request_uri=…`.
+A `request_uri` is meant to last seconds, which is too short to hand to a person, and a one-time link is easily spent before the person sees it: chat apps and mail clients fetch links to build previews, and people reload pages. So the AS also returns its own link for the person, on its own origin, bound to this pushed request. `readi_interaction_uri` and `readi_interaction_expires_in` are READI extension members; no IETF or OpenID standard defines them. An AS that doesn't return them MUST give the `request_uri` a lifetime long enough for the person to respond, and the agent sends the person to `/authorize?client_id=…&request_uri=…`.
 
 **2. The agent gives the person one link** and says what they'll be asked, with the expiry:
 
@@ -275,7 +275,7 @@ A standing approval MUST record:
 | `person` | The person who approved it (`sub` at the AS) |
 | `agent` | The agent's `client_id` (its Client ID Metadata Document URL) |
 | `resource` | The one resource it applies to (RFC 8707 resource indicator) |
-| `authorization_details` | The exact actions and limits (RFC 9396), for example `{"type":"booking","actions":["create"],"party_size_max":4,"locations":["https://cafe.example/"]}` |
+| `authorization_details` | The exact actions and limits (RFC 9396), for example `{"type":"https://readi.page/access/types/booking","actions":["create"],"max_party_size":4,"locations":["https://cafe.example/"]}` |
 | `mode` | `strict` or `bounded`, as resolved in 9.1 when the grant was created |
 | `caps` | For bounded only: per-use maximum amount and currency, maximum count per day, and any other numeric limits the resource publishes |
 | `created_at`, `expires_at` | When it was approved and when it ends |
@@ -434,8 +434,11 @@ A digest served by the same site as the download only detects accidental corrupt
 |---|---|---|
 | RA-3.11 (proposed) | The agent SHOULD present a short labelled HTTPS handoff on a known origin and MUST show its server-supplied expiry. A browser code flow SHOULD use PAR to keep request data off the front channel (RA-3.2 still requires it for `authorization_details`). A deployment using a continuation link MUST bind it to the specific client session, enforce its expiry and limit redirects to configured origins. It SHOULD continue from sign-in to consent in one browser handoff, with every required approval still explicit. | RFC 9126 §§2–4; READI profile |
 | RA-4.8 (proposed) | A hosted or polling integration MUST expose machine-readable waiting-for-sign-in, waiting-for-approval, approved, denied, expired and failed states as applicable, with a server-supplied expiry for pending interactions. A transaction integration MUST distinguish approved from committed and expose the receipt or its reference when available. Polling MUST require client authentication or a secret separate from the browser link, and the client MUST stop polling at a terminal state. | RFC 8628 §3.5; CIBA §7.4; READI profile |
+| RA-3.13 (proposed) | An AS MAY offer a post-consent return for an agent that can't receive a redirect. The return address MUST be declared in the client ID metadata document and be on the same origin as that document. After the decision, the AS MUST show the person a link back to the agent that they choose to follow, and MUST NOT redirect automatically. The link MUST carry a one-time signed response naming the AS (`iss`), the client (`aud`), the interaction and the decision, valid for at most 5 minutes and with a `jti` the agent rejects on reuse. The response MUST NOT carry a code or token. The agent MUST verify it against the AS it pinned and then collect the result over its authenticated backchannel. | RFC 7515; RFC 7519 §§4.1, 5.1; RFC 9207; READI profile |
 
 Progress is exposed through the agent's existing interface, such as command-line JSON lines or tool results. READI defines no new wire protocol for it.
+
+RA-3.13 comes from one implementation and complements device authorization (flow 3) for agents with a web origin but no redirect handling. Field names and the response's `typ` are still to be settled.
 
 ### Receipts that match what happened
 
