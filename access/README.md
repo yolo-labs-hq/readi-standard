@@ -1,6 +1,6 @@
 # READI Access — Draft 2026.12-pre
 
-*A profile for how AI agents sign in, get a person's approval, and act on their behalf. It is part of the READI readiness standard (https://readi.page), sponsored by The Radar Network. The text is licensed CC BY 4.0. Status: working draft, not for implementation. Revised November 27, 2026: chat platforms and hosted agents (§10), device authorization (flow 3), and platform and agent-host identities. Requirements marked “proposed” are new in this revision and open for comment.*
+*A profile for how AI agents sign in, get a person's approval, and act on their behalf. It is part of the READI readiness standard (https://readi.page), sponsored by The Radar Network. The text is licensed CC BY 4.0. Status: working draft, not for implementation. Revised November 27, 2026: chat platforms and hosted agents (§10), device authorization (flow 3), platform and agent-host identities, one link for the person on a split identity provider and authorization server (§8.1), and typed read-only approvals (flow 3). Requirements marked “proposed” are new in this revision and open for comment.*
 
 ## 1. Purpose
 
@@ -85,8 +85,9 @@ The key words MUST, SHOULD and MAY are used as in RFC 2119 and RFC 8174 when in 
 - How a broker shows the person which upstream data (for example Google Calendar) each agent can reach.
 - Whether the 90-day ceiling in RA-9.5 should be shorter for payments.
 - Whether `readi_standing_approvals` should be proposed to the IETF OAuth working group as a registered metadata member.
-- How device authorization (flow 3) bootstraps identity on a split IdP and AS (§8). RFC 8628 defines access-token issuance only, so READI specifies the combined server first.
-- How CIBA (flow 4) fits the split exchange and approval in §8. CIBA can return an OpenID ID token, but READI needs a worked example before requiring it.
+- How CIBA (flow 4) fits the split deployment in §8.2. The ID-JAG tells the AS whom to ask, but READI needs a worked example before requiring it.
+- Whether `readi_interaction_uri` (§8.1) should be proposed to the IETF OAuth working group, or replaced by a longer `request_uri` lifetime once deployments show how long people take to respond.
+- Whether the AS should tell the agent anything about who approved, for example a pairwise identifier, when the agent has a use for it. §8.1 gives the agent nothing by default (RA-8.17).
 - What evidence ties a platform's verified service identity to a specific delegation, so it can appear as an inner `act` (RA-5.10).
 - Whether Claude's enterprise-managed authorization (which uses ID-JAG in an MCP client) can meet §8 directly. An identity assertion alone still isn't approval (RA-8.3).
 
@@ -98,11 +99,100 @@ A deployment MAY run authentication and authorization as two services:
 - an **identity provider (IdP)** that signs the person in and vouches for who they are, and
 - an **authorization server (AS)** that decides what an agent may do and issues access tokens.
 
-When they are separate, they MUST be linked with the **Identity Assertion JWT Authorization Grant (ID-JAG)** (draft-ietf-oauth-identity-assertion-authz-grant-06, an IETF OAuth working-group draft). Track changes until it is final.
+Which path applies depends on whether the person is there to sign in:
 
-### Steps
+| Situation | Path |
+|---|---|
+| The person is present and can open a link (flow 3, including device authorization) | **8.1** The AS fronts the interaction and signs the person in through the IdP. The person handles one link. |
+| A standing approval covers the request (§9) | **8.2** ID-JAG |
+| The person is away and approves on their own device (flow 4) | **8.2** ID-JAG, which tells the AS whom to ask |
+| The agent already holds an identity assertion for the person from the IdP | **8.2** ID-JAG |
 
-**1. The person signs in at the IdP** (OpenID Connect). The agent receives an ID token or refresh token for that person.
+When the agent presents the person's identity to the AS (8.2), the two services MUST be linked with the **Identity Assertion JWT Authorization Grant (ID-JAG)** (draft-ietf-oauth-identity-assertion-authz-grant-06, an IETF OAuth working-group draft). Track changes until it is final.
+
+### 8.1 Person present: the AS fronts the interaction (proposed)
+
+*Proposed November 27, 2026, after a live run in which the person had to open two links: one to sign in at the IdP, then one to approve at the AS. The approval link could only be created after the first link had been used, and the sign-in it relied on expired after about five minutes.*
+
+When the person is present, the agent starts at the AS, not the IdP. The AS is an OpenID Connect relying party of the IdP and sends the browser there to sign in. The person opens one link, signs in, approves on a separate screen, and the code goes to the agent's redirect URI. The agent never talks to the IdP.
+
+```
+Agent ──PAR (RFC 9126): resource, authorization_details, PKCE, dpop_jkt, private_key_jwt──▶ AS
+Agent ◀──────────── request_uri, plus a link for the person (readi_interaction_uri) ──────── AS
+Agent ──── one link ────▶ Person's browser
+                          │ opens the AS link
+                          ▼
+                          AS ──OIDC──▶ IdP: sign in (passkey; fresh for bookings and payments)
+                          AS ◀──────── IdP: ID token for the AS only
+                          AS: approval screen, its own step ("Table for 2, Nov 28, 7:00 pm UTC, once")
+                          │ Approve
+                          ▼
+                          redirect_uri?code&state&iss  (agent callback or relay)
+Agent ──code + PKCE verifier + private_key_jwt + DPoP──▶ AS /token
+Agent ◀──────── DPoP-bound access token with the granted authorization_details ──────── AS
+Agent ──flow 5──▶ Resource ──introspection (RFC 7662), receipt──▶ AS
+```
+
+**1. The agent pushes the request to the AS** exactly as in flow 3, adding `dpop_jkt` so the code can only be redeemed with its DPoP key (RFC 9449 §10):
+
+```http
+POST /par HTTP/1.1
+Host: as.example
+Content-Type: application/x-www-form-urlencoded
+
+client_id=https%3A%2F%2Fagent.example%2Fagents%2Fassistant.json
+&response_type=code
+&redirect_uri=https%3A%2F%2Fcafe.example%2Frelay
+&state=<random>
+&code_challenge=<S256 challenge>&code_challenge_method=S256
+&dpop_jkt=<JWK thumbprint of the agent's DPoP key>
+&resource=https%3A%2F%2Fcafe.example%2Fapi%2Fbookings
+&authorization_details=[{"type":"https://readi.page/access/types/booking","actions":["create"],"locations":["https://cafe.example/api/bookings"],"start":"2026-11-28T19:00:00Z","party_size":2,"max_uses":1}]
+&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&client_assertion=<JWT>
+```
+```json
+{
+  "request_uri": "urn:ietf:params:oauth:request_uri:6esc_11ACC5bwc014ltc14eY22c",
+  "expires_in": 60,
+  "readi_interaction_uri": "https://as.example/i/Kx7fQ2",
+  "readi_interaction_expires_in": 600
+}
+```
+
+A `request_uri` is meant to last seconds, which is too short to hand to a person. So the AS also returns its own link for the person, on its own origin, bound to this pushed request. `readi_interaction_uri` and `readi_interaction_expires_in` are READI extension members; no IETF or OpenID standard defines them. An AS that doesn't return them MUST give the `request_uri` a lifetime long enough for the person to respond, and the agent sends the person to `/authorize?client_id=…&request_uri=…`.
+
+**2. The agent gives the person one link** and says what they'll be asked, with the expiry:
+
+> Approve your booking at **as.example**: https://as.example/i/Kx7fQ2 — it expires at 7:10 pm.
+
+**3. The AS signs the person in through the IdP.** It is the IdP's relying party, uses its own redirect URI at the IdP, and chooses how fresh the sign-in must be (RA-8.14). If the person already has a suitable session at the IdP, the IdP MAY skip the prompt (for example with `prompt=none` and a fallback); that's an implementation choice, not a READI requirement.
+
+**4. The AS shows the approval as its own screen.** It shows the agent (flow 2), the resource and the exact details, and the person approves or declines. Signing in is never taken as approval.
+
+**5. The AS redirects to the agent's redirect URI** with `code`, `state` and `iss` (RFC 9207). If the redirect URI is a relay at the resource, the relay only stores the code for the agent to collect and shows the person a page saying they can return to their agent. It never sends the browser anywhere else.
+
+**6. The agent redeems the code** at the AS token endpoint with the PKCE verifier, `private_key_jwt` and a DPoP proof made with the key named in `dpop_jkt`. The response is a flow 3 token response with the granted `authorization_details`.
+
+**7. The agent acts** (flow 5). The resource introspects or validates the token and learns a per-resource identifier for the person, not their IdP identity.
+
+| ID | Requirement | Source |
+|---|---|---|
+| RA-8.11 (proposed) | In a split deployment, when the person is present, the agent MUST start the interaction at the AS with a pushed authorization request (flow 3), and the AS MUST sign the person in by acting as an OpenID Connect relying party of the IdP. The person MUST NOT be asked to open a separate IdP link before the approval link. | RFC 9126; OpenID Connect Core 1.0 §3.1; READI profile |
+| RA-8.12 (proposed) | Only the AS and the IdP may send the person's browser to another party during the interaction. A resource or relay that receives the final redirect MUST NOT redirect or forward the browser elsewhere. | RFC 9700 §4.11; READI profile |
+| RA-8.13 (proposed) | After sign-in, the AS MUST show the approval as a separate step with an explicit approve and decline. It MUST show the agent, the resource and the exact `authorization_details` (RA-3.5). Signing in, including with a passkey, MUST NOT count as approval. | RFC 9396 §3; READI profile |
+| RA-8.14 (proposed) | The AS MUST set sign-in freshness by risk. For a payment, booking or other obligation (flow 6), it MUST require the person to authenticate at the IdP during this interaction (`max_age=0` or `prompt=login`) and MUST check that `auth_time` in the IdP's ID token is no earlier than the start of the interaction. For read-only access it MAY accept an existing IdP session within a limit it publishes. | OpenID Connect Core 1.0 §§3.1.2.1, 2; READI profile |
+| RA-8.15 (proposed) | The link given to the person MUST be on the AS origin and bound to the pushed request and client. It MUST stay valid for at least 5 and at most 10 minutes, MUST be usable until a decision is made, and MUST NOT be usable after approval, decline or expiry. The agent MUST show the expiry the AS supplied (RA-3.11). | RFC 9126 §§2.2, 4; READI profile |
+| RA-8.16 (proposed) | The AS MUST bind the code to the client, PKCE challenge and `dpop_jkt` from the pushed request, MUST require the matching DPoP proof and client authentication at the token endpoint, and MUST include `iss` in the authorization response. The agent MUST check `iss` against the AS it pinned from the resource metadata. The agent needn't know or pin the IdP. | RFC 9449 §10; RFC 9207 §2; RFC 7523; RFC 7636 |
+| RA-8.17 (proposed) | The AS MUST NOT pass the IdP's ID token, or the person's IdP subject identifier, to the agent. The resource receives a per-resource identifier for the person through the access token or introspection. | OpenID Connect Core 1.0 §8.1; RFC 7662; READI profile |
+| RA-8.18 (proposed) | An AS supporting 8.1 MUST advertise `pushed_authorization_request_endpoint`, `authorization_code` in `grant_types_supported`, `authorization_details_types_supported`, `dpop_signing_alg_values_supported` and `authorization_response_iss_parameter_supported: true`. An agent that finds them, with the person present, MUST use 8.1 rather than 8.2. | RFC 8414; RFC 9126 §5; RFC 9396 §10; RFC 9449 §5.1; RFC 9207 §3 |
+
+Device authorization (flow 3) fits the same pattern: the AS's verification page signs the person in through the IdP, so the agent still starts at the AS and never handles an IdP link.
+
+### 8.2 Person not asked now: ID-JAG
+
+Use this path for the cases in the table above. An ID-JAG proves who the person and agent are; it is never the person's approval (RA-8.3).
+
+**1. The agent already holds the person's identity from the IdP** (OpenID Connect): an ID token, or a DPoP-bound refresh token (RA-8.7).
 
 **2. The agent exchanges it at the IdP for an ID-JAG** (RFC 8693 token exchange):
 
@@ -136,13 +226,13 @@ grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
 &assertion=<ID-JAG>
 ```
 
-**4. The AS applies its own policy** and either issues a DPoP-bound access token (flow 5) or requires the person's approval first (flows 3–4).
+**4. The AS applies its own policy** and either issues a DPoP-bound access token (flow 5) under a standing approval (§9), or asks the person on their own device (flow 4). If the person turns out to be present, the agent uses 8.1 instead.
 
-### Requirements
+### 8.3 Requirements for both paths
 
 | ID | Requirement | Source |
 |---|---|---|
-| RA-8.1 | If the IdP and AS are separate services, the AS MUST accept identity only through an ID-JAG, never through a raw ID token sent to the AS. | ID-JAG draft-06 §4 (WG draft) |
+| RA-8.1 | If the IdP and AS are separate services, the AS MUST accept a person's identity from an agent only through an ID-JAG, never through a raw ID token. Under 8.1 the AS receives the IdP's ID token directly, as its relying party. | ID-JAG draft-06 §4 (WG draft) |
 | RA-8.2 | The AS MUST validate the ID-JAG: `typ` is `oauth-id-jag+jwt`, the signature is from a trusted IdP, `aud` is the AS, `client_id` matches the presenting agent, and it is unexpired and not replayed (`jti`). | ID-JAG draft-06 §3.1, §4.4; RFC 8725 |
 | RA-8.3 | **An ID-JAG proves who the person and agent are. It is not the person's approval.** The AS MUST still obtain approval through flow 3 or 4 for any action the person has not already approved at the AS, and MUST NOT treat IdP-side scopes as consent for transactions (flow 6). | READI profile; ID-JAG draft-06 (the resource AS keeps independent control of its tokens) |
 | RA-8.4 | Requested actions SHOULD be carried as `authorization_details` in the token exchange and preserved into the AS's grant. | ID-JAG draft-06 (RAR example); RFC 9396 |

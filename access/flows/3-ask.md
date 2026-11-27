@@ -48,6 +48,22 @@ client_id=https%3A%2F%2Fagent.example%2Fagents%2Fassistant.json
 | RA-3.6 | The token response MUST return the `authorization_details` actually granted. | RFC 9396 §7 |
 | RA-3.7 | The authorization and token requests MUST carry `resource`. The token MUST be usable only at that resource. | RFC 8707; RFC 9396 §3.2 |
 | RA-3.8 | Access tokens MUST be short-lived (READI default ≤ 10 minutes) and sender-constrained (flow 5). | READI profile choice; RFC 9449 |
+| RA-3.12 (proposed) | A request for read-only access SHOULD use a typed `authorization_details` entry whose actions are all read-only, rather than a bare scope. The approval screen MUST say what can be seen, at which site, and for how long, and MUST NOT describe it as permission to change anything. A read-only grant MUST NOT authorize any action that changes state. | RFC 9396 §§2, 3; READI profile |
+
+**When the sign-in server is split** into an identity provider and an authorization server, the agent still starts here, at the AS. The AS signs the person in through the identity provider, so the person opens one link (spec §8.1).
+
+### Read-only approvals (proposed)
+
+To list or read, ask for a typed read permission rather than a bare scope, so the approval screen can say exactly what the agent will see:
+
+```
+&authorization_details=[{"type":"https://readi.page/access/types/booking","actions":["read"],"locations":["https://cafe.example/api/bookings"]}]
+```
+
+> **Let BookingBot see your bookings at Café Example?** It can't make, change or cancel a booking. Access ends in 10 minutes.
+> [Allow] [Don't allow]
+
+A scope alone, such as `bookings.read`, still works where a site accepts it, but it gives the approval screen less to show.
 
 ## Optional: device authorization (proposed)
 
@@ -102,7 +118,7 @@ Device authorization doesn't stop someone from tricking a person into approving 
 | RA-3.9 (proposed) | An AS offering device authorization MUST advertise its device authorization endpoint and grant type. The client MUST submit the exact resource and typed details on the device authorization backchannel. The AS MUST bind them and the validated client to the device session and enforce that binding at redemption. RA-3.1, RA-3.2 and RA-2.4 apply to the browser code path. RA-2.6 MUST check response-type intersection only for a grant that uses response types. Device issuance MUST meet flow 5, including DPoP. Any split deployment MUST also meet spec §8. | RFC 8628 §§3, 4; RFC 9396; RFC 8707; RFC 9449; READI profile |
 | RA-3.10 (proposed) | The client MUST show the AS verification origin, user code and expiry. The AS MUST show the requesting client, exact resource and approved action details before consent, and ask the person to verify the displayed code against the client even when using `verification_uri_complete`. The AS MUST limit code attempts, expire the code after at most five minutes and allow one redemption. The client MUST keep the device code out of browser URLs, obey `interval` and `slow_down`, and stop on denial or expiry. | RFC 8628 §§3.3, 3.5, 5; RFC 9396 §3; READI profile |
 
-READI specifies device authorization on a combined Access server first. How it bootstraps identity on a split IdP and AS (spec §8) is an open question.
+On a split IdP and AS, the AS's verification page signs the person in through the identity provider, as in spec §8.1. The agent still sends the device request to the AS.
 
 ## Open question
 
