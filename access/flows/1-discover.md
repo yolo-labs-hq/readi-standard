@@ -20,6 +20,8 @@ HTTP/1.1 401 Unauthorized
 WWW-Authenticate: Bearer resource_metadata="https://readi.page/.well-known/oauth-protected-resource/access/demo/mcp", scope="demo.read"
 ```
 
+The demo endpoint is MCP-facing, so it challenges with `Bearer` as MCP specifies. A READI resource that accepts only DPoP tokens (flow 5) challenges with `DPoP` instead (RFC 9449 §7.1). The challenge always names the scheme the endpoint accepts (RA-1.7).
+
 **3. The agent reads the protected-resource metadata** (RFC 9728 §3).
 
 ```http
@@ -68,6 +70,9 @@ Host: readi.page
 | RA-1.4 | The sign-in server MUST publish RFC 8414 metadata, MUST list `S256` in `code_challenge_methods_supported`, and MUST NOT offer the `plain` method. | RFC 8414; OAuth 2.1 draft (PKCE) |
 | RA-1.5 | The sign-in server MUST advertise `client_id_metadata_document_supported: true`. Dynamic client registration is OPTIONAL. | draft-ietf-oauth-client-id-metadata-document (WG draft) |
 | RA-1.6 | An agent MUST be able to identify itself with an HTTPS client ID URL (flow 2). An agent that can only use dynamic registration will fail at servers that don't offer it. | Observed (see test record) |
+| RA-1.7 (proposed) | An MCP-facing resource using OAuth MUST publish RFC 9728 metadata naming its exact MCP endpoint and issuer and return the MCP Bearer discovery challenge. The AS MUST publish RFC 8414 metadata. The client MUST validate the selected issuer, including RFC 9207 response issuer identification when advertised. The MCP client and AS MUST follow the MCP resource-indicator rules. An AS offering browser code flow MUST require S256, support CIMD for READI clients and MAY support pre-registration or dynamic registration for platform clients. A discovery challenge MUST correspond to the scheme accepted by the endpoint. | MCP authorization 2026-07-28; RFC 9728 §§3, 5; RFC 8707 §2; RFC 8414; RFC 9207 |
+
+RA-1.7 covers the platform-facing endpoint of a hosted integration (spec §10). That endpoint is a separate resource from the READI resource behind it (RA-5.8).
 
 ## Test record (November 24, 2026, local build, not published)
 

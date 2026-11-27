@@ -53,3 +53,13 @@ Signature: sig1=:<signature>:
 | RA-2.6 | The sign-in server MUST intersect the document's grant and response types with its own, and reject with `invalid_client` if either is empty. | CIMD §6 |
 | RA-2.7 | The approval screen MUST show the `client_id` hostname, plus fetched name and logo if available. | CIMD §10.6 (SHOULD there; READI makes it MUST) |
 | RA-2.8 | OPTIONAL at R4, *under review for R5*: signed requests per Web Bot Auth. If used: a `Signature-Agent` header in dictionary form with an `https` URL, signature covering `@authority` or `@target-uri`, `created`, `expires` (RECOMMENDED ≤ 24 h), a JWK-thumbprint `keyid`, and `tag="web-bot-auth"`. | draft-ietf-webbotauth-httpsig-protocol-01 §5 (WG draft); RFC 9421 |
+| RA-2.9 (proposed) | Consent MUST name the agent and its client ID origin, identify the accountable operator, and identify the agent host and originating platform when independently verified and distinct. The AS MUST bind verified identities to the approval using authenticated client evidence or trusted configuration for the specific integration. A request-supplied platform hint MAY be displayed as unverified context and MUST NOT be treated as an authenticated actor or used to grant access. | CIMD draft-03 (WG draft); RFC 8693 §4.1; READI profile |
+
+### What the approval screen shows for a hosted agent
+
+When the agent runs on a hosted integration behind a chat platform (spec §10), the screen separates what's verified from what isn't:
+
+> **Example Assistant** (agent.example) wants to book a table at Café Example.
+> Run by Example Labs, hosted by agent.example. Requested from Example Chat (verified).
+
+A platform name taken only from the request is shown as “says it was requested from Example Chat (not verified)”, and never changes what the agent may do.

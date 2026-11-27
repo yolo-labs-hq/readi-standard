@@ -6,7 +6,7 @@
 
 ## What the person's dashboard MUST show
 
-For each agent (by name, logo and `client_id` hostname):
+For each agent (by name, logo and `client_id` hostname, with its operator, and its host and platform when verified, per RA-6.7):
 - **Active approvals:** each `authorization_details` entry in plain words, the resource, when it was granted and when it expires.
 - **Pending requests:** flow 4 asks waiting for an answer.
 - **Activity:** receipts from flow 6 and a log of calls, with time, resource and action.

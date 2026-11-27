@@ -4,6 +4,8 @@
 
 **Goal:** the agent is mid-task and needs something its first approval didn't cover. The person gets a prompt on their own phone, sees exactly what's asked, and approves or declines. The agent never sees their sign-in.
 
+If the person is present but the agent can't receive a redirect, use device authorization (flow 3) instead. CIBA is for a person who may be away, and needs a login hint the server issued and a trusted channel to the person's device.
+
 ## Steps
 
 **1. The agent sends a backchannel request** directly to the READI Access server (CIBA §7.1), authenticated as itself and signed:

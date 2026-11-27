@@ -33,6 +33,7 @@
   "iss": "https://readi.page/access/demo/mcp",
   "sub": "<person>",
   "act": { "sub": "https://agent.example/agents/assistant.json" },
+  "readi_context": { "operator": { "name": "Example Labs", "uri": "https://agent.example" } },
   "transaction_id": "txn_7Q2K",
   "authorization_details": [ … exactly as approved … ],
   "outcome": "confirmed",
@@ -51,3 +52,6 @@
 | RA-6.4 | The resource MUST return a signed receipt naming person, agent, terms, outcome and reference, and the Access server MUST keep it for the person (flow 7). | READI profile; JWS (RFC 7515) |
 | RA-6.5 | Payment rails stay out of scope. Where an agent payment mandate system is used (for example Google's Agent Payments Protocol, which uses signed intent, cart and payment mandates), the READI receipt SHOULD reference the mandate ID. | AP2 (industry protocol, v0.x); informative |
 | RA-6.6 | A failure or decline MUST produce a receipt with `outcome` `declined` or `failed`, so nothing ends silently. | READI R5 "returns an outcome" |
+| RA-6.7 (proposed) | The signed receipt and the review view MUST preserve the approved agent, operator and verified host and platform context, and the actor chain used for execution. The signer MUST derive these from the verified approval and execution records. | Flows 6 and 7; RFC 7515; READI profile |
+
+`readi_context` carries the operator, and the host and platform when verified, exactly as in the token (flow 5). For a hosted agent behind a chat platform, the receipt records both, so the person can later see which product the booking came through. Proposed clarifications on committed outcomes and exact booking times (RA-6.8, RA-6.9) are in spec §11.
